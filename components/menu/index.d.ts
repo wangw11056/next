@@ -43,6 +43,16 @@ export interface SubMenuProps extends React.HTMLAttributes<HTMLElement>, CommonP
      * 菜单项或下一级子菜单
      */
     children?: React.ReactNode;
+
+    /**
+     * 菜单层级
+     */
+    level?: number;
+
+    /**
+     * 是否需要提示当前项可展开的 icon，默认是有的
+     */
+    noIcon?: boolean;
 }
 
 export class SubMenu extends React.Component<SubMenuProps, any> {}
@@ -250,7 +260,7 @@ export interface MenuProps extends HTMLAttributesWeak, CommonProps {
     onSelect?: (
         selectedKeys: Array<any>,
         item: any,
-        extra: { select: boolean; lable: any; keyPath: any[]; key: string[] }
+        extra: { select: boolean; label: any; keyPath: any[]; key: string[] }
     ) => void;
 
     /**
