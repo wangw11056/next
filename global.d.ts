@@ -18,6 +18,7 @@ declare module 'markdown-it';
 declare module 'markdown-it-anchor';
 declare module 'remark';
 declare module 'lodash.clonedeep';
+declare module '@alifd/adaptor-helper';
 
 declare const mountNode: HTMLDivElement;
 
