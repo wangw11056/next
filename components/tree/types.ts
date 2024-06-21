@@ -731,4 +731,12 @@ export interface TreeProps<
      * @skip
      */
     dir?: string;
+
+    /**
+     * 将元素滚动到视图中，仅在 filterTreeNode 开启时生效
+     * @en Scroll the element to the view, only effective when filterTreeNode is enabled
+     * @defaultValue false
+     * @skip
+     */
+    scrollIntoView?: boolean;
 }

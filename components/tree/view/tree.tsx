@@ -1,4 +1,5 @@
 import React, { Component, Children, cloneElement, createRef } from 'react';
+import { findDOMNode } from 'react-dom';
 import PropTypes from 'prop-types';
 import { cloneDeep } from 'lodash';
 import { polyfill } from 'react-lifecycles-compat';
@@ -366,6 +367,7 @@ export class Tree extends Component<TreeProps, TreeState> {
         immutable: PropTypes.bool,
         virtualListProps: PropTypes.object,
         clickToCheck: PropTypes.bool,
+        scrollIntoView: PropTypes.bool,
     };
 
     static defaultProps = {
@@ -408,6 +410,7 @@ export class Tree extends Component<TreeProps, TreeState> {
         immutable: false,
         virtualListProps: {},
         clickToCheck: false,
+        scrollIntoView: false,
     };
 
     tabbableKey: string | null;
@@ -415,7 +418,10 @@ export class Tree extends Component<TreeProps, TreeState> {
     dragNode: NodeInstance | null;
     dragNodesKeys: Key[];
 
+    normalListRef: React.RefObject<HTMLUListElement> | null;
     virtualListRef: React.RefObject<VirtualList>;
+
+    highlightTimer: number | undefined;
 
     constructor(props: TreeProps) {
         super(props);
@@ -468,7 +474,10 @@ export class Tree extends Component<TreeProps, TreeState> {
 
         bindCtx(this, ['handleExpand', 'handleSelect', 'handleCheck', 'handleBlur']);
 
+        this.normalListRef = createRef();
         this.virtualListRef = createRef();
+
+        this.handleTreeNodeScrollIntoView();
     }
 
     static getDerivedStateFromProps(props: TreeProps, state: TreeState) {
@@ -529,6 +538,39 @@ export class Tree extends Component<TreeProps, TreeState> {
             _k2n: k2n,
             _p2n: p2n,
         };
+    }
+
+    componentDidUpdate() {
+        this.handleTreeNodeScrollIntoView();
+    }
+
+    handleTreeNodeScrollIntoView() {
+        const { dataSource, scrollIntoView } = this.props;
+        if (!Array.isArray(dataSource) || !dataSource.length) {
+            return;
+        }
+
+        if ('filterTreeNode' in this.props && !!scrollIntoView) {
+            this.scrollTreeNodeIntoView();
+        }
+    }
+
+    // scroll into focus item
+    scrollTreeNodeIntoView() {
+        const { prefix } = this.props;
+
+        clearTimeout(this.highlightTimer);
+        this.highlightTimer = window.setTimeout(() => {
+            try {
+                const treeNode = findDOMNode(this.normalListRef?.current) as HTMLElement;
+                const itemNode = treeNode.querySelector<
+                    HTMLElement & { scrollIntoViewIfNeeded?: () => void }
+                >(`.${prefix}tree-node.${prefix}filtered`);
+                itemNode && itemNode.scrollIntoViewIfNeeded && itemNode.scrollIntoViewIfNeeded();
+            } catch (ex) {
+                // I don't care...
+            }
+        });
     }
 
     setFocusKey() {
@@ -1239,7 +1281,7 @@ export class Tree extends Component<TreeProps, TreeState> {
             return (
                 <ul
                     role="tree"
-                    ref={ref}
+                    ref={ref || this.normalListRef}
                     aria-multiselectable={multiple}
                     onBlur={this.handleBlur}
                     className={newClassName}

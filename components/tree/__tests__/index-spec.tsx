@@ -1,5 +1,6 @@
 import React, { Component, createRef, useState } from 'react';
 import propTypes from 'prop-types';
+import type { MountReturn } from 'cypress/react';
 import { KEYCODE } from '../../util';
 import Tree from '../index';
 import Button from '../../button/index';
@@ -276,6 +277,33 @@ function renderTreeNodeWithData(dataSource: DataNode[]) {
         }
     };
     return drill(dataSource);
+}
+
+function isInViewport(targetSelector: string, targetIndex = 0) {
+    const getBoundingClientRect = () => {
+        return Cypress.$(targetSelector)[targetIndex].getBoundingClientRect();
+    };
+
+    return cy.window().then(win => {
+        const { innerWidth: width, innerHeight: height } = win;
+        return cy
+            .get(targetSelector)
+            .its('length')
+            .should('be.at.least', 1) // 确保至少有一个匹配的元素
+            .then(async () => {
+                const elementRect = getBoundingClientRect();
+                const isTopVisible = elementRect.top >= 0 && elementRect.top <= height;
+                const isBottomVisible = elementRect.bottom >= 0 && elementRect.bottom <= height;
+
+                if (isTopVisible || isBottomVisible) {
+                    const isLeftVisible = elementRect.left >= 0 && elementRect.left <= width;
+                    const isRightVisible = elementRect.right >= 0 && elementRect.right <= width;
+                    return isTopVisible && isLeftVisible && isBottomVisible && isRightVisible;
+                }
+
+                return false;
+            });
+    });
 }
 
 class ExpandDemo extends Component {
@@ -1429,5 +1457,111 @@ describe('Tree', () => {
             expect(jumpIndex).to.equal(40);
             expect(itemSizeGetter).to.equal(itemSizeGetter);
         });
+    });
+});
+
+function generateDataSource(count = 100) {
+    return new Array(count).fill(null).map((__, i) => {
+        return {
+            label: '服装',
+            key: `${i}`,
+            className: `k-${i}`,
+            children: [
+                {
+                    label: '男装',
+                    key: `${i}_${i}`,
+                    className: `k-${i}-${i}`,
+                    children: [
+                        {
+                            label: '外套',
+                            key: `${i}_${i}_${i}`,
+                            className: `k-${i}-${i}-${i}`,
+                        },
+                        {
+                            label: '夹克',
+                            key: `${i}_${i}_${i}_${i}`,
+                            className: `k-${i}-${i}-${i}-${i}`,
+                        },
+                    ],
+                },
+            ],
+        };
+    });
+}
+
+describe('should support scrollIntoView when use filterTreeNode property', () => {
+    const dataSource = generateDataSource();
+    dataSource.push({
+        label: '服装',
+        key: '100',
+        className: 'k-100',
+        children: [
+            {
+                label: '女装',
+                key: '100_100',
+                className: 'k-100-100',
+                children: [
+                    {
+                        label: '裙子',
+                        key: '100_100_100',
+                        className: 'k-100-100-100',
+                    },
+                    {
+                        label: '毛衣',
+                        key: '100_100_100_100',
+                        className: 'k-100-100-100-100',
+                    },
+                ],
+            },
+        ],
+    });
+    let expandedKeys = ['100_100_100_100'];
+
+    function checkNodeIsInViewByKey(key: string) {
+        cy.mount(
+            <Tree
+                expandedKeys={expandedKeys}
+                autoExpandParent
+                dataSource={dataSource}
+                scrollIntoView
+                filterTreeNode={node => expandedKeys.indexOf(node.props.eventKey!) > -1}
+            />
+        ).as('wrapper');
+        findTreeNodeByKey(key).first().should('has.class', 'next-filtered');
+        isInViewport('.next-filtered').should('be.true');
+    }
+
+    it('scrollIntoView property should default to false', () => {
+        cy.mount(
+            <Tree
+                expandedKeys={expandedKeys}
+                autoExpandParent
+                dataSource={dataSource}
+                filterTreeNode={node => expandedKeys.indexOf(node.props.eventKey!) > -1}
+            />
+        );
+        findTreeNodeByKey('100-100-100-100').first().should('has.class', 'next-filtered');
+        isInViewport('.next-filtered').should('be.false');
+    });
+
+    it('valid of scrollIntoView', () => {
+        checkNodeIsInViewByKey('100-100-100-100');
+    });
+
+    it('should support scroll update when expandedKeys change', () => {
+        checkNodeIsInViewByKey('100-100-100-100');
+
+        cy.then(() => {
+            expandedKeys = new Array(100).fill(null).map((_, i) => `${i}_${i}`);
+        });
+        cy.get<MountReturn>('@wrapper').then(({ component, rerender }) => {
+            return rerender(
+                React.cloneElement(component as React.ReactElement, {
+                    expandedKeys,
+                })
+            );
+        });
+        findTreeNodeByKey('0-0').first().should('has.class', 'next-filtered');
+        isInViewport('.next-filtered').should('be.true');
     });
 });
